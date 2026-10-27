@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from torch.distributions import Categorical
+import torch.nn.functional as F
 
 
 class SimpleMLP(nn.Module):
@@ -24,6 +25,33 @@ class SimpleMLP(nn.Module):
         for layer in self.hidden:
             X = layer(X)
         return self.output_layer(X)
+import torch.nn as nn
+
+class SimpleConv2d(nn.Module):
+    def __init__(self, input_size=(3, 480, 640), hidden_size=32, output_size=5, n_layers=1):
+        super().__init__()
+
+        in_channels = input_size[0]
+        layers = []
+
+        for _ in range(n_layers):
+            layers.append(nn.Conv2d(in_channels, hidden_size, kernel_size=3, padding=1))
+            layers.append(nn.ReLU())
+            layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
+            in_channels = hidden_size
+
+        self.hidden = nn.Sequential(*layers)
+
+        self.output_layer = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(),
+            nn.Linear(hidden_size, output_size),
+        )
+
+    def forward(self, X):
+        X = self.hidden(X)
+        return self.output_layer(X)
+
 
 class DoomTraining:
     def __init__(self, game, model, actions):
@@ -121,7 +149,7 @@ if __name__ == "__main__":
     game.init()
 
     actions = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1]]
-    model = SimpleMLP(input_size=(3, 480, 640), hidden_size=(1,96,128), output_size=len(actions))
+    model = SimpleConv2d(input_size=(3, 480, 640), hidden_size=32, output_size=len(actions), n_layers=1)
     trainer = DoomTraining(game, model, actions)
 
     losses = trainer.train(epochs=100, episodes=10)
